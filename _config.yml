@@ -2,7 +2,7 @@
 title:               Martin's blog
 tagline:             'development notes of martin19'
 description:         'this blog is literally a web logfile of my thoughts in progress, posting about digital things i care about.'
-url:                 martin19.github.io
+url:                 https://martin19.github.io
 baseurl:             /
 paginate:            5
 permalink:           pretty
