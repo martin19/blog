@@ -1,6 +1,22 @@
-remote_theme: pages-themes/minimal@v0.2.0
+# Setup
+title:               Martin's blog
+tagline:             'development notes of martin19'
+description:         'this blog is literally a web logfile of my thoughts in progress, posting about digital things i care about.'
+url:                 https://martin19.github.io
+baseurl:             /
+paginate:            5
+permalink:           pretty
+
+# About/contact
+author:
+  name:              martin19 on github
+  url:               https://twitter.com/@wearecloudpaint
+  email:             contact@cloudpaint.com
+
+# Gems
 plugins:
-- jekyll-remote-theme # add this line to the plugins list if you already have one
-title: martin's develoment blog
-description: my hacking blog. details coming soon.
-show_downloads: false  
+  - jekyll-paginate
+
+# Custom vars
+#version:             1.1.0
+#google_analytics_id: #UA-XXXX-Y
