@@ -1,13 +1,12 @@
-# Building an AI twitter bot from scratch.
+## setup hardware, document specs.
 
-# setup hardware, document specs.
-# install ubuntu
+## install ubuntu
 version 22.04
 
-# update to latest package versions
+## update to latest package versions
 skip this.
 
-### install some tools
+## install some tools
 
 ```
 sudo apt-get install intel-gpu-tools 
