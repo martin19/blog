@@ -1,5 +1,7 @@
 ## setup hardware, document specs.
 
+test
+
 ## install ubuntu
 version 22.04
 
@@ -8,7 +10,7 @@ skip this.
 
 ## install some tools
 
-```
+```sh
 sudo apt-get install intel-gpu-tools 
 sudo apt-get clinfo
 ```
@@ -20,7 +22,7 @@ As of today, the Arc770 drivers are under heavy development and installation is 
 
 Add the package repository to apt sources:
 
-```
+```sh
 wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
   sudo gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy client" | \
@@ -30,7 +32,7 @@ sudo apt update
 
 Install Compute, Media, and Display runtimes
 
-```
+```sh
 sudo apt install -y \
   intel-opencl-icd intel-level-zero-gpu level-zero \
   intel-media-va-driver-non-free libmfx1 libmfxgen1 libvpl2 \
@@ -41,8 +43,11 @@ sudo apt install -y \
 
 # make sure the A770 is available as pci device
 
-```
+```sh
 martin@mlbox:~/projects/arc770setup$ lspci -v | grep -A 10 VGA
+```
+
+```
 00:02.0 VGA compatible controller: Intel Corporation Device 4692 (rev 0c) (prog-if 00 [VGA controller])
         DeviceName: Onboard - Video
         Subsystem: Gigabyte Technology Co., Ltd Device d000
@@ -68,18 +73,25 @@ martin@mlbox:~/projects/arc770setup$ lspci -v | grep -A 10 VGA
 
 Second must be our Arc770, memory reports to 16M. The kernel driver in use is `i915` that we have just installed.
 
-```
+```sh
 martin@mlbox:~/projects/arc770setup$ clinfo -l
-Platform #0: Intel(R) OpenCL Graphics
+ ```
+
+ ```
+ Platform #0: Intel(R) OpenCL Graphics
  `-- Device #0: Intel(R) Arc(TM) A770 Graphics
 Platform #1: Intel(R) OpenCL Graphics
  `-- Device #0: Intel(R) UHD Graphics 730
+
  ```
 
 When we run gputop we see this:
 
-```
+```sh
 martin@mlbox:~/projects/arc770setup$ sudo intel_gpu_top
+```
+
+```
 intel-gpu-top: 8086:56a0 @ /dev/dri/card1 -    0/   0 MHz; 100% RC6;        0 irqs/s
 
          ENGINES     BUSY                                                                               MI_SEMA MI_WAIT
@@ -97,7 +109,7 @@ tells us the device is available as opencl device.
 
 We'll need to setup permissions for our current user to use the gpu.
 
-```
+```sh
 stat -c "%G" /dev/dri/render*
 groups ${USER}
 sudo gpasswd -a ${USER} render
@@ -112,15 +124,15 @@ We'll install oneApi and make sure it runs properly with pytorch.
 
 https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html?operatingsystem=linux&distributions=aptpackagemanager
 
-```
+```sh
 wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \ | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
 ```
 
-```
+```sh
 echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
 ```
 
-```
+```sh
 sudo apt install intel-basekit
 ```
 
@@ -137,7 +149,7 @@ martin@mlbox:/opt$ python3 --version
 Python 3.10.12
 ```
 
-We'll need to install pytorch and ipex, the [ipex github repo](https://github.com/intel/intel-extension-for-pytorch)! says 
+We'll need to install pytorch and ipex, the [ipex github repo](https://github.com/intel/intel-extension-for-pytorch) says 
 
 >"Note: Intel® Extension for PyTorch* v2.1.10+xpu requires PyTorch*/libtorch v2.1.* (patches needed) to be installed."
 
@@ -153,7 +165,7 @@ python -m pip install torch==2.1.0a0 torchvision==0.16.0a0 torchaudio==2.1.0a0 i
 
 Now lets try to run the sanity test given on the page:
 
-```
+```sh
 source {DPCPPROOT}/env/vars.sh
 source {MKLROOT}/env/vars.sh
 python -c "import torch; import intel_extension_for_pytorch as ipex; print(torch.__version__); print(ipex.__version__); [print(f'[{i}]: {torch.xpu.get_device_properties(i)}') for i in range(torch.xpu.device_count())];"
@@ -198,19 +210,62 @@ Next error coming up...
 ImportError: /home/martin/.local/lib/python3.10/site-packages/intel_extension_for_pytorch/lib/libintel-ext-pt-gpu.so: undefined symbol: _ZNK5torch8autograd4Node4nameB5cxx11Ev
 ```
 
-A symbol is not found in the shared library. This tells me some (binary) library does not find a symbol which should be defined in another (binary) library. 
+A symbol is not found in the shared library. This tells us some (binary) library does not find a symbol which should be defined in another (binary) library. 
 There is an open gitbug issue with an unconfirmed resolution, great: `https://github.com/intel/intel-extension-for-pytorch/issues/457`. Looks as if we need to 
 solve that ourselves:
 
 We've installed `intel-extension-for-pytorch==2.1.10+xpu`, it probably imports a symbol from another shared library. We could either make sure the dependency 
 exports the symbol or recompile ipex. We'll recompile ipex. It can be tough to succeed quickly but let's try that.
 
-I'll skip every step here, but this is what we need to do:
+I'll not list every step here, but this is what we need to do:
 
 - checkout ipex source code at tag `2.1.10+xpu`
 - checkout pytorch repo at matching version 
 - apply intel patches to pytorch
-- build pytorch `python setup install`
+- build pytorch 
+
+```
+python setup install
+```
+
+- compile ipex as described [here](https://intel.github.io/intel-extension-for-pytorch/#installation)
+
+Check your gcc version to be 12 with following command:
+
+```
+ls -larth `which gcc` 
+```
+
+If version of the links is not 12, you can adjust the links like this:
+
+```
+sudo ln -sf /usr/bin/x86_64-linux-gnu-gcc-nm-12 /usr/bin/gcc-nm
+sudo ln -sf /usr/bin/x86_64-linux-gnu-gcc-ar-12 /usr/bin/gcc-ar
+sudo ln -sf /usr/bin/x86_64-linux-gnu-gcc-12 /usr/bin/gcc
+sudo ln -sf /usr/bin/x86_64-linux-gnu-gcc-ranlib-12 /usr/bin/gcc-ranlib
+```
+
+```
+install cudatoolkit in conda environment
+(base) martin@mlbox:~/projects/arc770setup/ipex$ sudo chown --recursive martin:martin ~/miniconda3/
+(base) martin@mlbox:~/projects/arc770setup/ipex$ conda install anaconda::cudatoolkit
+
+
+wget https://github.com/intel/intel-extension-for-pytorch/raw/v2.1.10%2Bxpu/scripts/compile_bundle.sh 
+
+chmod +x compile_bundle.sh  
+
+sudo ./compile_bundle.sh /opt/intel/oneapi/compiler/2024.0 /opt/intel/oneapi/mkl/2024.0 USE_AOT_DEVLIST='ats-m150'
+ ```
+
+
+
+
+# compile ipex without conda
+# source the oneapi environment
+# call compile script
+# setup ccache
+# wait
 
 
 # Setup oneApi on ubuntu 22.04 6.2.0-37-generic
@@ -218,7 +273,7 @@ wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCT
 
 # Links
 
-[1] https://dgpu-docs.intel.com/driver/installation.html
-[2] https://www.intel.com/content/www/us/en/docs/oneapi/installation-guide-linux/2024-0/overview.html
-[3] https://github.com/intel/intel-extension-for-pytorch
-[4] https://intel.github.io/intel-extension-for-pytorch/#installation
+[1] https://dgpu-docs.intel.com/driver/installation.html  
+[2] https://www.intel.com/content/www/us/en/docs/oneapi/  installation-guide-linux/2024-0/overview.html  
+[3] https://github.com/intel/intel-extension-for-pytorch  
+[4] https://intel.github.io/intel-extension-for-pytorch/#installation  
